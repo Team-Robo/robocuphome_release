@@ -1,82 +1,67 @@
-# Grasping
+# Grasping & manipulation
 
-!!! note "Coming soon"
-    The grasping repositories are being prepared for public release. Links on this page will
-    work once they are published.
+End-to-end ROS 2 Humble perception, 6-DoF grasp synthesis, pose registration, cabinet perception, and arm motion planning. The grasping workspace (`public-core-grasp`) is decoupled from robot-specific arm controllers so you can reuse the perception and grasp synthesis pipeline on any robot arm and gripper.
 
-[`core-grasp`](https://github.com/Team-Robo/core-grasp) is a ROS 2 Humble workspace that pulls
-the grasping stack together as Git submodules. It segments a named target object, builds an
-aligned point cloud of it, and synthesises ranked 6-DoF grasps with a choice of backends.
-
-```bash
-git clone --recurse-submodules https://github.com/Team-Robo/core-grasp.git
-```
-
-## Pipeline
+## Data flow
 
 ```mermaid
 flowchart LR
-  CAM["RGB-D camera"] --> SEG{"Segmenter"}
-  SEG -->|"continuous"| YOLO["yolo_segmenter<br/>(C++ / CUDA)"]
-  SEG -->|"on trigger"| SAM["sam_segmenter<br/>(SAM3, text prompt)"]
-  YOLO -->|"/perc/grasp/instances"| PC["Object point cloud"]
-  SAM -->|"/perc/grasp/instances"| PC
-  PC -->|"/perc/grasp/target_cloud"| PROC["grasp_processor"]
-  PROC -->|"GetGrasps"| GGX["GraspGenX<br/>(TensorRT)"]
-  PROC -->|"GetGrasps"| AG["AnyGrasp"]
-  PROC -->|"/manip/grasp/result"| OUT["Planner / arm"]
-  PROC --> RR["Rerun dashboard"]
+    subgraph Input["1. Perception"]
+        direction TB
+        RGBD["RGB-D<br/>Camera"] --> Seg["YOLO / SAM3<br/>Masks"] --> Cloud["Aligned Target<br/>Cloud"]
+    end
+
+    subgraph Grasp["2. Grasp Synthesis"]
+        direction TB
+        F2G["F2G-Pose<br/>(Optional)"] --> Gen["GraspGenX /<br/>AnyGrasp"] --> Filt["Collision &<br/>Aperture Filter"]
+    end
+
+    subgraph Exec["3. Arm Execution"]
+        direction TB
+        MTC["MoveIt 2 / MTC<br/>(Galaxea R1)"] --> Ctrl["HDAS Bridge /<br/>Mock Controller"]
+    end
+
+    Input --> Grasp --> Exec
 ```
 
-1. **Segmentation.** In continuous mode, a C++ YOLO segmenter tracks COCO-class targets at camera
-   frame rate. In trigger mode, a C++ GGML build of SAM3 segments whatever the text prompt names
-   (for example `red cup` or `cup,bottle`), with no separate detector.
-2. **Point cloud.** RGB and depth images are paired by their exact capture time. The mask is then
-   back-projected into a target cloud, and the surrounding scene is kept as collision evidence.
-3. **Grasp synthesis.** `grasp_processor` sends the cloud to the selected backend. It then applies
-   GPU collision checks against the gripper CAD model, spatial non-maximum suppression and
-   aperture checks, and publishes ranked candidates on `/manip/grasp/result`. In every output,
-   +Z is the approach direction and +X is the closing direction.
-4. **Visualisation.** A native C++ Rerun dashboard shows the 3D scene and grasp candidates, the
-   RGB image with detections, aligned depth, and pipeline metrics on one screen.
+## Component breakdown
 
-## Running it
+### Part 1: Targeted Object Segmentation
+*Packages: [`public-perc-yolo_segmenter`](https://github.com/Team-Robo/public-perc-yolo_segmenter), [`public-perc-sam_segmenter`](https://github.com/Team-Robo/public-perc-sam_segmenter)*
 
-```bash
-# Continuous YOLO segmentation + GraspGenX
-ros2 launch grasp_bringup manip_bringup.launch.py \
-  camera_type:=d405 single_frame_mode:=false target_object:=cup
+- **What it does:** `yolo_segmenter` provides continuous C++ ONNX/TensorRT instance segmentation with ByteTrack tracking; `sam_segmenter` provides on-demand text-prompted segmentation using SAM 3 (C++ GGML or Python worker).
+- **How to use on your own robot:** Both are tracked as submodules inside `public-core-grasp` and can also be built independently (with `core_r1_interfaces` and `grasp_pipeline`) to publish `/perc/grasp/instances` for any RGB camera stream.
 
-# Triggered SAM3 segmentation + GraspGenX
-ros2 launch grasp_bringup manip_bringup.launch.py \
-  camera_type:=d405 single_frame_mode:=true target_object:=cup
-ros2 service call /manip/grasp/trigger std_srvs/srv/Trigger '{}'
-```
+### Part 2: 3D Shape Completion & Known-Object Pose
+*Packages: [`public-manip-f2g_pose_ros2`](https://github.com/Team-Robo/public-manip-f2g_pose_ros2), [`public-core-mac_registration`](https://github.com/Team-Robo/public-core-mac_registration)*
 
-Use `grasp_backbone:=anygrasp` to switch backends, `gripper_id:=openarm_1_0` for the OpenArm
-gripper, and `camera_type:=bag bag_path:=<bag>` to replay a recording.
+- **What it does:** `f2g_pose_ros2` reconstructs a complete 3D object shape and 6-DoF pose from a single head-camera view and optionally fuses it with a live wrist-camera point cloud via ICP. `mac_registration` aligns a known reference object cloud against live depth clouds using Maximal Cliques (MAC) with quality gating.
+- **How to use on your own robot:** Use `f2g_pose_ros2` standalone (`direct_head` mode) or inside `public-core-grasp` (`fusion` mode). `mac_registration` is **completely standalone** on any `sensor_msgs/PointCloud2` topic.
 
-## Backends and grippers
+### Part 3: Grasping Workspace (`public-core-grasp`)
+*Package: [`public-core-grasp`](https://github.com/Team-Robo/public-core-grasp)*
 
-| Backend                                                                    | Notes                                                                                                    |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [`manip-graspgenx_ros2`](https://github.com/Team-Robo/manip-graspgenx_ros2) | Default. Native C++ TensorRT/CUDA runtime for NVIDIA GraspGenX (Apache-2.0). Checkpoints are fetched from Hugging Face. |
-| [`manip-anygrasp_ros2`](https://github.com/Team-Robo/manip-anygrasp_ros2)   | Adapter only. The AnyGrasp SDK binaries, licence and weights must be obtained separately from the AnyGrasp authors. |
+- **What it does:** Bundles 5 core packages — [`src/core-r1_interface`](https://github.com/Team-Robo/public-core-grasp/tree/main/src/core-r1_interface), [`src/perc-object_pointcloud`](https://github.com/Team-Robo/public-core-grasp/tree/main/src/perc-object_pointcloud), [`src/manip-grasp_bringup`](https://github.com/Team-Robo/public-core-grasp/tree/main/src/manip-grasp_bringup), [`src/manip-graspgenx_ros2`](https://github.com/Team-Robo/public-core-grasp/tree/main/src/manip-graspgenx_ros2), and [`src/manip-anygrasp_ros2`](https://github.com/Team-Robo/public-core-grasp/tree/main/src/manip-anygrasp_ros2) — plus the YOLO, SAM3, F2G-Pose, and AnyGrasp SDK submodules. Extracts aligned target + scene clouds, runs either GraspGenX (default C++ TensorRT/CUDA) or AnyGrasp, filters candidates against gripper geometry and collisions, and visualizes results in Rerun.
+- **How to use on your own robot:** Clone recursively, create the Conda environment from `environment.yml`, point the launch file at your RGB-D camera topics, and select a gripper profile (`galaxea_g1`, `openarm_1_0`, or add your own parallel-jaw JSON profile). In the grasp frame, `+Z` is the approach axis and `+X` is the closing axis.
 
-Supported grippers:
+### Part 4: Cabinet & Shelf Perception
+*Package: [`public-perc-cabinet_perception`](https://github.com/Team-Robo/public-perc-cabinet_perception)*
 
-- **Galaxea G1**: parallel-jaw gripper with a 100 mm stroke (`galaxea_g1`).
-- **OpenArm 1.0**: parallel-jaw gripper with an 88 mm stroke (`openarm_1_0`).
+- **What it does:** Pure geometric RGB-D perception (NumPy + SciPy) that detects shelf boards, segments each level into cubbies, assigns objects to cubbies, and measures free placement space (`CabinetScene`).
+- **How to use on your own robot:** **Standalone** (includes vendored `object_grouping_interfaces`). Supply an RGB-D camera, optional cabinet prior YAML, and instance masks to get structured shelf/cubby geometry for pick-and-place planning.
 
-!!! warning
-    The grasp poses are based on reference geometry only. They are not calibrated to a robot's
-    tool centre point and are not a guarantee of physical grasp success. Calibrate for your own
-    setup before executing grasps on hardware.
+### Part 5: Arm Motion Planning & Execution (Galaxea R1)
+*Package: [`public-manip-R1`](https://github.com/Team-Robo/public-manip-R1)*
 
-## Known-object pose
+- **What it does:** Provides the `r1_v2_1_0` URDF, MoveIt 2 configuration (`r1_moveit_config`), MoveIt Task Constructor pick-and-place planner (`robot_mtc` / `r1_mtc_api`), Python manipulation client (`r1_api`), and hand–eye camera calibration tools (`calibration` + `moveit_calibration`).
+- **How to use on your own robot:** Galaxea R1 users can run mock or hardware execution directly via the launch files. Teams with other arms can adapt `robot_mtc`'s robot-profile YAML layout and `r1_api`'s `GraspClient` to connect `public-core-grasp` to their own MoveIt 2 setup.
 
-For objects whose shape is known in advance,
-[`core-mac_registration`](https://github.com/Team-Robo/core-mac_registration) estimates a 6-DoF
-pose by registering the object's point cloud against a reference capture with Maximal Cliques
-(MAC). It refuses to publish a pose when the match quality is low. This lets a grasp that was
-planned once be reused after the object moves.
+## Key ROS interfaces
+
+| Part | Package | Primary ROS 2 Interface |
+| --- | --- | --- |
+| Segmentation | `public-perc-yolo_segmenter` / `sam_segmenter` | `/perc/grasp/instances` (`InstanceSegmentation`) |
+| Point cloud & grasp | `public-core-grasp` | `/perc/grasp/target_cloud`, `GetGrasps` (srv), `/manip/grasp/result` |
+| Known-object pose | `public-core-mac_registration` | `~/input_cloud`, `~/pose` (`Detection3D`) |
+| Cabinet perception | `public-perc-cabinet_perception` | `/perception/cabinet/scene` (`CabinetScene`) |
+| Arm execution | `public-manip-R1` | MoveIt 2 `move_group`, `PlanPick` / MTC services |

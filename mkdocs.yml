@@ -1,10 +1,14 @@
-site_name: Team Robo Docs
-site_description: Documentation for Team Robo's open-source RoboCup@Home software stack.
+site_name: Robo@EEE Software Release
+site_description: Open-source robotics software catalog and architecture documentation by Nanyang Technological University Team Robo (RoboCup@Home and BARN Challenge).
+site_url: https://team-robo.github.io/robocuphome_release/
 repo_url: https://github.com/Team-Robo
-repo_name: Team-Robo
+repo_name: Team Robo on GitHub
+edit_uri: !ENV [TEAM_ROBO_EDIT_URI, ""]
 
 theme:
   name: material
+  logo: assets/team-robo-logo.jpeg
+  favicon: assets/team-robo-logo.jpeg
   features:
     - navigation.tabs
     - navigation.tabs.sticky
@@ -14,25 +18,24 @@ theme:
     - navigation.top
     - navigation.tracking
     - toc.follow
+    - content.action.edit
     - content.code.copy
     - content.code.annotate
     - search.suggest
     - search.highlight
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/weather-night
-        name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: indigo
-      accent: indigo
+    - scheme: slate
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
   icon:
     repo: fontawesome/brands/github
 
@@ -80,18 +83,32 @@ plugins:
 
 extra_css:
   - stylesheets/extra.css
+  - stylesheets/overview.css
 
 extra:
   social:
     - icon: fontawesome/solid/globe
-      link: https://teamrobo.vercel.app
-      name: Main Website
+      link: https://robo-eee-web.vercel.app/
+      name: Official team website
     - icon: fontawesome/brands/github
       link: https://github.com/Team-Robo
       name: GitHub Organization
+    - icon: fontawesome/brands/instagram
+      link: https://www.instagram.com/robo_at_eee/
+      name: Instagram
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/robo-at-eee/
+      name: LinkedIn
+    - icon: fontawesome/solid/envelope
+      link: mailto:teamrobontu@gmail.com
+      name: Contact Team Robo
 
 nav:
-  - Overview: index.md
-  - Software Stack: stack.md
-  - HRI Challenge: hri.md
-  - Grasping: grasping.md
+  - Home: index.md
+  - Repositories: projects.md
+  - Architecture:
+      - Overview: stack.md
+      - Audio & HRI: hri.md
+      - Grasping & manipulation: grasping.md
+      - Navigation & mapping: navigation.md
+      - System tools & UI: tools.md

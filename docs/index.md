@@ -1,51 +1,41 @@
-# Team Robo Open Source
+---
+hide:
+  - navigation
+  - toc
+---
 
-[Team Robo](https://teamrobo.vercel.app) is a student-led robotics team from the School of
-Electrical & Electronic Engineering at Nanyang Technological University (NTU), Singapore.
+<div class="overview-hero" markdown="1">
 
-We build intelligent robotic systems that combine AI, perception and autonomous navigation.
-This site documents the open-source software we are releasing for our **RoboCup@Home** service
-robot: a Galaxea R1 mobile manipulator running ROS 2 Humble on NVIDIA Jetson AGX Orin.
+<canvas class="overview-hero__canvas" aria-hidden="true"></canvas>
 
-The release covers:
+<div class="overview-hero__copy" markdown="1">
 
-- **Audio**: offline speech-to-text and text-to-speech that keep all audio on the robot.
-- **Person perception**: pose, whole-body re-identification, face recognition, identity fusion,
-  3D position tracking, follow-target re-acquisition and appearance description.
-- **Scene and object perception**: free-seat detection, YOLO and SAM3 instance segmentation, and
-  known-object pose by point-cloud registration.
-- **Grasping** (coming soon): segmentation → object point cloud → 6-DoF grasp synthesis with
-  GraspGenX or AnyGrasp.
+# Robo@EEE Software Release
 
-## Getting Started
+Open-source software portal for **Team Robo** at Nanyang Technological University, Singapore.
+Explore our modular ROS 2 Humble service-robot stack (speech, perception, grasping, manipulation,
+semantic mapping, and operator tools) alongside our ROS 1 Noetic BARN Challenge navigation
+repositories.
 
-The [software stack overview](stack.md) shows how the pieces fit together and lists every Git
-repository in the release. Each repository's README has its own setup and launch instructions.
+[Browse repositories](projects.md){ .md-button .md-button--primary }
+[Explore architecture](stack.md){ .md-button }
 
-- [HRI Challenge](hri.md) explains how the audio and person-perception repositories serve our
-  RoboCup@Home HRI behaviour tree.
-- [Grasping](grasping.md) describes the `core-grasp` workspace, which you can clone in one step:
+[Official team website](https://robo-eee-web.vercel.app/)
 
-```bash
-git clone --recurse-submodules https://github.com/Team-Robo/core-grasp.git
-```
+</div>
 
-All packages target **Ubuntu 22.04 + ROS 2 Humble**. GPU-accelerated nodes also run on a
-desktop NVIDIA GPU for development.
+<div class="overview-hero__mark" aria-hidden="true">
+  <img class="overview-hero__logo no-lightbox" src="assets/team-robo-logo.jpeg" alt="" width="1254"
+       height="1254" fetchpriority="high">
+</div>
 
-## Competitions
+<div class="overview-hero__motion">
+  <input class="md-visually-hidden overview-hero__pause" type="checkbox" id="overview-pause">
+  <label class="overview-hero__control" for="overview-pause" title="Pause background animation">
+    <span class="md-visually-hidden">Pause background animation</span>
+  </label>
+</div>
 
-- **RoboCup@Home**: developing service robots that assist people in domestic environments.
-- **[IEEE ICRA BARN Challenge](https://people.cs.gmu.edu/~xiao/Research/BARN_Challenge/BARN_Challenge26.html)**
-  (from 2024 to 2026, the team competed under MLDA@EEE):
-    - **ICRA 2026 (Vienna)**: 3rd place in the physical finals, and 1st place in the
-      dynamic-obstacle simulation.
-    - **ICRA 2025 (Atlanta)**: finalist, and 3rd place in the dynamic-obstacle simulation.
-    - **ICRA 2024 (Yokohama)**: 2nd place in the physical finals.
-    - **All-time simulation leaderboard**: 15th of 35 entries since 2022, with a BARN score
-      of 0.4515 out of a maximum of 0.5.
+</div>
 
-## Contributing
-
-Contributions are welcome! Feel free to open an issue or pull request in the relevant repository
-under the [Team-Robo GitHub organization](https://github.com/Team-Robo).
+<script src="javascripts/overview.js" defer></script>
